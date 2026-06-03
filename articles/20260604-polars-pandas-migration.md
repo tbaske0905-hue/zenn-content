@@ -1,6 +1,6 @@
 ---
 title: "Polarsで爆速データ分析：Pandasユーザーのための実践移行ガイド"
-emoji: "🐻‍❄️"
+emoji: "⚡"
 type: "tech"
 topics: ["python", "datascience", "pandas", "polars"]
 published: true
