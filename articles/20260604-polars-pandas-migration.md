@@ -3,7 +3,7 @@ title: "Polarsで爆速データ分析：Pandasユーザーのための実践移
 emoji: "⚡"
 type: "tech"
 topics: ["python", "datascience", "pandas", "polars"]
-published: true
+published: true 
 ---
 
 ## はじめに
