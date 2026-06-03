@@ -55,7 +55,7 @@ def generate_tweet(title: str, url: str, topics: list[str]) -> str:
         HASHTAG_MAP.get(t, f"#{t}") for t in topics[:4] if t in HASHTAG_MAP
     )
     # 共通タグ
-    hashtags += " #Zenn #データサイエンス"
+    hashtags += " #Zenn"
 
     tweet = f"""📝 新記事を公開しました！
 
