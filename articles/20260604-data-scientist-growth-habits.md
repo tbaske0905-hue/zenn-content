@@ -2,7 +2,7 @@
 title: "データサイエンティストとして急成長する5つの習慣：現場エンジニアが実践するスキルアップ法"
 emoji: "📈"
 type: "idea"
-topics: ["datascience", "machinelearning", "python", "statistics", "キャリア"]
+topics: ["datascience", "machinelearning", "python", "statistics"]
 published: true
 ---
 
