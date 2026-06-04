@@ -1,6 +1,14 @@
 """
 Zennに記事をpushした後、X投稿用の文言を生成して表示するスクリプト。
-カテゴリ別に連番ハッシュタグをつける（例: #統計学1, #AI最新情報2）
+【パターンA：問題提起型】で生成する。
+
+ツイート構成:
+  1. ドキっとする状況・失敗例（1〜2行）
+  2. → 結果・問題点
+  3. なぜそうなるかの一言
+  4. 記事の価値を示して「👇」
+  5. URL
+  6. #カテゴリ連番 補助タグ #Zenn
 
 使い方:
     python scripts/post_to_x.py articles/20260604-ab-test-statistics.md
@@ -12,11 +20,9 @@ import sys
 from pathlib import Path
 
 ZENN_USERNAME = "ai_lab_ds"
-
-# scriptsディレクトリのcategory_counts.json
 COUNTS_FILE = Path(__file__).parent / "category_counts.json"
 
-# topics → カテゴリ の判定ルール（上から順に最初にマッチしたものを使う）
+# カテゴリ判定ルール（上から順にマッチ）
 CATEGORY_RULES = [
     (["statistics"], "統計学"),
     (["llm", "ai"], "AI最新情報"),
@@ -25,11 +31,8 @@ CATEGORY_RULES = [
     (["python"], "Python実装"),
     (["datascience", "machinelearning"], "データサイエンス"),
 ]
-
-# type: idea でDS成長系の判定
 DS_GROWTH_KEYWORDS = ["成長", "キャリア", "習慣", "スキル", "マインド"]
 
-# カテゴリ → Xハッシュタグのプレフィックス
 CATEGORY_TAG = {
     "AI最新情報":      "#AI最新情報",
     "DS成長":         "#DS成長",
@@ -38,7 +41,6 @@ CATEGORY_TAG = {
     "データサイエンス": "#データサイエンス",
 }
 
-# topics → 補助ハッシュタグ
 EXTRA_TAGS = {
     "python":         "#Python",
     "ai":             "#AI",
@@ -52,6 +54,70 @@ EXTRA_TAGS = {
     "polars":         "#Polars",
     "pytorch":        "#PyTorch",
     "mlops":          "#MLOps",
+}
+
+# ===== パターンA：カテゴリ別ツイートテンプレート =====
+# {numbered_tag} = #カテゴリ名+連番、{extra} = 補助タグ、{url} = 記事URL
+TWEET_TEMPLATES = {
+    "統計学": """\
+「A/Bテストで有意差が出た！展開しよう」
+
+→ 3ヶ月後、効果ゼロ。
+
+毎日結果を確認して止める判断は、統計的に偽陽性率を4倍以上にします。
+
+よくある3つの落とし穴と正しい設計をPythonコード付きで解説👇
+
+{url}
+
+{numbered_tag} {extra} #Zenn""",
+
+    "AI最新情報": """\
+「AIに仕事を任せたい」
+
+そのイメージ、AIエージェントで現実になりつつあります。
+
+ただし仕組みを理解せず使うと、思わぬ誤動作に気づかないことも。
+
+仕組みから2025年の最新活用事例まで、わかりやすく解説👇
+
+{url}
+
+{numbered_tag} {extra} #Zenn""",
+
+    "DS成長": """\
+「データサイエンティストになったけど、どう成長すればいい？」
+
+Kaggleより業務データ、コードより統計理解、精度より一言説明。
+
+現場で本当に差がつく習慣5つをまとめました👇
+
+{url}
+
+{numbered_tag} {extra} #Zenn""",
+
+    "Python実装": """\
+「Pandasが遅くてつらい...」
+
+そのまま我慢してませんか？
+
+Polarsに切り替えるだけでCSV読み込みが最大7倍速くなります。
+Pandasユーザー向けに比較コード付きで移行ガイドを書きました👇
+
+{url}
+
+{numbered_tag} {extra} #Zenn""",
+
+    "データサイエンス": """\
+データサイエンスの現場でよく聞く声。
+
+「ツールは使えるけど、なぜこの手法なのかがわからない」
+
+理論と実装をセットで理解するために、まとめてみました👇
+
+{url}
+
+{numbered_tag} {extra} #Zenn""",
 }
 
 
@@ -71,17 +137,12 @@ def parse_frontmatter(content: str) -> dict:
 
 
 def detect_category(title: str, topics: list[str], article_type: str) -> str:
-    """記事のカテゴリを自動判定する。"""
-    # タイトルにDS成長系キーワードが含まれていればDS成長
     if article_type == "idea" and any(kw in title for kw in DS_GROWTH_KEYWORDS):
         return "DS成長"
-
-    # topicsで判定
     for rule_topics, category in CATEGORY_RULES:
         if any(t in topics for t in rule_topics):
             return category
-
-    return "データサイエンス"  # デフォルト
+    return "データサイエンス"
 
 
 def load_counts() -> dict:
@@ -93,31 +154,6 @@ def save_counts(counts: dict) -> None:
         json.dumps(counts, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
-
-
-def generate_tweet(title: str, url: str, topics: list[str], article_type: str) -> str:
-    # カテゴリ判定 → 連番取得
-    category = detect_category(title, topics, article_type)
-    counts = load_counts()
-    counts[category] = counts.get(category, 0) + 1
-    save_counts(counts)
-
-    # 連番ハッシュタグ（例: #統計学1）
-    numbered_tag = f"{CATEGORY_TAG[category]}{counts[category]}"
-
-    # 補助ハッシュタグ（最大2個）
-    extra = [EXTRA_TAGS[t] for t in topics if t in EXTRA_TAGS][:2]
-    extra_str = " ".join(extra)
-
-    tweet = f"""📝 新記事を公開しました！
-
-{title}
-
-{url}
-
-{numbered_tag} {extra_str} #Zenn"""
-
-    return tweet, category, counts[category]
 
 
 def main():
@@ -139,9 +175,25 @@ def main():
     slug = article_path.stem
     url = f"https://zenn.dev/{ZENN_USERNAME}/articles/{slug}"
 
-    tweet, category, number = generate_tweet(title, url, topics, article_type)
+    # カテゴリ判定 → 連番更新
+    category = detect_category(title, topics, article_type)
+    counts = load_counts()
+    counts[category] = counts.get(category, 0) + 1
+    save_counts(counts)
 
-    print(f"\nカテゴリ: {category}（通算{number}本目）")
+    numbered_tag = f"{CATEGORY_TAG[category]}{counts[category]}"
+    extra = " ".join(EXTRA_TAGS[t] for t in topics if t in EXTRA_TAGS)[:2]
+    extra_tags = " ".join(list(dict.fromkeys(
+        [EXTRA_TAGS[t] for t in topics if t in EXTRA_TAGS]
+    ))[:2])
+
+    tweet = TWEET_TEMPLATES[category].format(
+        url=url,
+        numbered_tag=numbered_tag,
+        extra=extra_tags,
+    )
+
+    print(f"\nカテゴリ: {category}（通算{counts[category]}本目）")
     print("\n" + "=" * 50)
     print("📋 X投稿用テキスト（コピーしてXに貼り付け）")
     print("=" * 50)
