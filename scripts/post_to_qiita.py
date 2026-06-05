@@ -7,6 +7,7 @@ Zenn記事をQiitaにも投稿するスクリプト。
 
 import re
 import sys
+import time
 from pathlib import Path
 
 import requests
@@ -87,10 +88,12 @@ def post_to_qiita(title: str, body: str, topics: list[str]) -> str:
     }
 
     response = requests.post(QIITA_API, json=payload, headers=headers)
-
     if response.status_code == 201:
-        url = response.json().get("url", "")
-        return url
+        return response.json().get("url", "")
+    elif response.status_code == 429:
+        print("⚠️  レート制限中です。時間をおいて再実行してください。", file=sys.stderr)
+        print("   目安：数時間後 or 翌日に再試行", file=sys.stderr)
+        sys.exit(1)
     else:
         print(f"Error {response.status_code}: {response.text}", file=sys.stderr)
         sys.exit(1)
