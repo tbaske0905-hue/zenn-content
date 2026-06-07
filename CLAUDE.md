@@ -121,3 +121,4 @@ published: true
 | 2026-06-04 | 20260604-polars-pandas-migration.md | Polarsで爆速データ分析：Pandasユーザーのための実践移行ガイド |
 | 2026-06-04 | 20260604-llm-comparison-2025.md | Claude・GPT・Gemini 用途別の選び方：データサイエンティストのためのLLM比較ガイド |
 | 2026-06-06 | 20260606-sklearn-pipeline.md | scikit-learnパイプラインで作る、再現性のある機械学習モデル |
+| 2026-06-08 | 20260608-bayesian-statistics.md | ベイズ統計の実践入門：「事前知識」を使ってデータから正しく学ぶ |
