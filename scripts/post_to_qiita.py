@@ -53,11 +53,55 @@ def parse_frontmatter(content: str) -> tuple[dict, str]:
     return result, body
 
 
+_LATEX_UNICODE = [
+    (r"\\text\{([^}]+)\}", r"\1"),
+    (r"\\mathrm\{([^}]+)\}", r"\1"),
+    (r"\\mathbf\{([^}]+)\}", r"\1"),
+    (r"\\mu",      "μ"),
+    (r"\\sigma",   "σ"),
+    (r"\\lambda",  "λ"),
+    (r"\\nu",      "ν"),
+    (r"\\alpha",   "α"),
+    (r"\\beta",    "β"),
+    (r"\\gamma",   "γ"),
+    (r"\\theta",   "θ"),
+    (r"\\chi",     "χ"),
+    (r"\^2",       "²"),
+    (r"\^3",       "³"),
+    (r"_\{1\}",    "₁"),
+    (r"_\{2\}",    "₂"),
+    (r"_1\b",      "₁"),
+    (r"_2\b",      "₂"),
+    (r"\\,",       " "),
+    (r"\\!",       ""),
+    (r"[\{\}]",    ""),
+]
+
+
+def _latex_to_plain(text: str) -> str:
+    """LaTeX インライン数式を Unicode プレーンテキストに変換する。"""
+    for pattern, repl in _LATEX_UNICODE:
+        text = re.sub(pattern, repl, text)
+    return text.strip()
+
+
+def _clean_heading_math(line: str) -> str:
+    """見出し行の $...$ を Unicode に変換する（Qiita は見出し内 LaTeX 非対応）。"""
+    return re.sub(r"\$([^$\n]+)\$", lambda m: _latex_to_plain(m.group(1)), line)
+
+
 def convert_body(body: str) -> str:
-    body = re.sub(r":::note tip",   ":::note",       body)
-    body = re.sub(r":::note warn",  ":::note alert", body)
-    body = re.sub(r":::note info",  ":::note",       body)
-    body = re.sub(r":::note\b(?! alert)", ":::note", body)
+    """Zenn 固有記法を Qiita 向けに変換し、見出しの LaTeX も除去する。"""
+    lines = []
+    for line in body.split("\n"):
+        if re.match(r"^#{1,6}\s", line):
+            line = _clean_heading_math(line)
+        lines.append(line)
+    body = "\n".join(lines)
+    body = re.sub(r":::note tip",         ":::note",       body)
+    body = re.sub(r":::note warn",        ":::note alert", body)
+    body = re.sub(r":::note info",        ":::note",       body)
+    body = re.sub(r":::note\b(?! alert)", ":::note",       body)
     return body.strip()
 
 
