@@ -10,183 +10,206 @@ published: true
 
 「コインを10回投げて7回表が出た。このコインは偏っているか？」
 
-頻度論（p値）で答えようとすると、「帰無仮説のもとで…」という回りくどい手順が必要です。ベイズ統計なら、「表が出る確率の分布」を直接得られます。
+頻度論（p値）では「帰無仮説のもとで…」という回りくどい手順が必要です。ベイズ統計なら「表が出る確率の分布」を直接得られます。
 
-本記事では、ベイズ統計の考え方をPythonコードと一緒に解説します。難しい数式より「何を計算しているか」を重視します。
+本記事では、ベイズ統計の核心的な数式とPythonによる実装を丁寧に解説します。
 
-## ベイズ統計の核心：3つの概念
+---
 
-### 事前分布（Prior）
-実験前にすでに持っている知識や仮定を確率分布で表したもの。
+## ベイズの定理：いつ使うか
 
-「コインの表が出る確率 θ は 0〜1 の間で、均等に分布していそう」→ 一様分布 `Beta(1, 1)`
+### いつ使うか
+- 過去の知識（事前分布）とデータを組み合わせて推論したいとき
+- サンプルが少なく、頻度論の推定が不安定なとき
+- 「〜の確率は何%か」という形で答えを直接出したいとき
+- A/Bテスト・パラメータ推定・分類モデルの確率校正など
 
-### 尤度（Likelihood）
-観測データが得られた確率。
+### 数式
 
-「θ のコインを10回投げて7回表が出る確率」→ 二項分布
+**ベイズの定理**：
 
-### 事後分布（Posterior）
-事前分布と尤度をかけ合わせたもの。「データを見た後の信念の更新」。
+$$P(\theta \mid \mathcal{D}) = \frac{P(\mathcal{D} \mid \theta) \cdot P(\theta)}{P(\mathcal{D})}$$
 
-$$P(\theta | data) \propto P(data | \theta) \cdot P(\theta)$$
+各項の意味：
 
-## Pythonで理解するベイズ更新
+| 項 | 名称 | 意味 |
+|----|------|------|
+| $P(\theta \mid \mathcal{D})$ | 事後分布（Posterior） | データを見た後のパラメータの確率分布 |
+| $P(\mathcal{D} \mid \theta)$ | 尤度（Likelihood） | パラメータ $\theta$ のもとでデータが得られる確率 |
+| $P(\theta)$ | 事前分布（Prior） | データを見る前のパラメータの信念 |
+| $P(\mathcal{D})$ | 周辺尤度（Evidence） | 正規化定数（定数なので比例式で扱うことが多い） |
 
-`scipy.stats` だけで実装できます。
+比例式で書くと：
+
+$$P(\theta \mid \mathcal{D}) \propto P(\mathcal{D} \mid \theta) \cdot P(\theta)$$
+
+> **事後分布 ∝ 尤度 × 事前分布**
+
+---
+
+## Beta分布と共役事前分布
+
+### いつ使うか
+- $\theta \in [0, 1]$（確率・割合）をパラメータとして推定するとき
+- 二項分布の尤度と組み合わせると解析的に更新できる（共役事前分布）
+
+### 数式
+
+**Beta分布の確率密度関数（PDF）**：
+
+$$f(\theta; \alpha, \beta) = \frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)} \theta^{\alpha-1}(1-\theta)^{\beta-1}, \quad \theta \in [0,1]$$
+
+期待値と分散：
+
+$$E[\theta] = \frac{\alpha}{\alpha + \beta}, \quad \text{Var}[\theta] = \frac{\alpha\beta}{(\alpha+\beta)^2(\alpha+\beta+1)}$$
+
+**二項尤度 × Beta事前分布 → Beta事後分布**（共役性）：
+
+データ：$n$ 回試行で $k$ 回成功
+
+$$P(\mathcal{D} \mid \theta) = \binom{n}{k}\theta^k(1-\theta)^{n-k}$$
+
+事前分布：$P(\theta) = \text{Beta}(\alpha_0, \beta_0)$
+
+事後分布：
+
+$$P(\theta \mid \mathcal{D}) = \text{Beta}(\alpha_0 + k,\; \beta_0 + n - k)$$
+
+→ 成功回数を $\alpha$ に、失敗回数を $\beta$ に**足すだけ**で更新できる。
 
 ```python
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy import stats
 
-# コインを10回投げて7回表が出た
-n_trials = 10
-n_heads = 7
+# コインを10回投げて7回表
+n_trials, n_heads = 10, 7
 
-# 事前分布: Beta(1, 1) = 一様分布
-prior_alpha, prior_beta = 1, 1
+# 事前分布: Beta(1, 1) = 一様分布（知識なし）
+prior_a, prior_b = 1, 1
 
-# ベイズ更新: Beta分布の共役事前分布を使う
-# 事後分布は Beta(prior_alpha + n_heads, prior_beta + n_tails)
-posterior_alpha = prior_alpha + n_heads
-posterior_beta = prior_beta + (n_trials - n_heads)
+# ベイズ更新：足し算だけ
+post_a = prior_a + n_heads
+post_b = prior_b + (n_trials - n_heads)
 
-print(f"事後分布: Beta({posterior_alpha}, {posterior_beta})")
-print(f"事後平均: {posterior_alpha / (posterior_alpha + posterior_beta):.3f}")
+prior_dist = stats.beta(prior_a, prior_b)
+post_dist  = stats.beta(post_a, post_b)
 
-# 可視化
+print(f"事後分布: Beta({post_a}, {post_b})")
+print(f"事後期待値 E[θ] = {post_a/(post_a+post_b):.3f}")
+print(f"事後分散 Var[θ] = {post_a*post_b/((post_a+post_b)**2*(post_a+post_b+1)):.4f}")
+
 theta = np.linspace(0, 1, 300)
-prior_dist = stats.beta(prior_alpha, prior_beta)
-posterior_dist = stats.beta(posterior_alpha, posterior_beta)
-
-plt.figure(figsize=(10, 5))
-plt.plot(theta, prior_dist.pdf(theta), label="事前分布 Beta(1,1)", linestyle="--", color="gray")
-plt.plot(theta, posterior_dist.pdf(theta), label=f"事後分布 Beta({posterior_alpha},{posterior_beta})", color="steelblue", linewidth=2)
-plt.axvline(0.5, color="red", linestyle=":", label="θ=0.5（公平なコイン）")
+plt.figure(figsize=(9, 4))
+plt.plot(theta, prior_dist.pdf(theta), "--", color="gray", label="事前 Beta(1,1)")
+plt.plot(theta, post_dist.pdf(theta), color="steelblue", lw=2,
+         label=f"事後 Beta({post_a},{post_b})")
+plt.axvline(0.5, color="red", linestyle=":", label="θ=0.5（公平）")
 plt.xlabel("θ（表が出る確率）")
 plt.ylabel("確率密度")
-plt.title("ベイズ更新：コイン投げの例")
-plt.legend()
-plt.tight_layout()
-plt.show()
+plt.legend(); plt.tight_layout(); plt.show()
 ```
 
-事後分布のピークが 0.7 付近にあり、「このコインは少し表寄りかもしれない」という推論が視覚的に分かります。
+---
 
 ## 信用区間（Credible Interval）
 
-ベイズ統計では「θ が 95% の確率でこの区間にある」と直接言えます（頻度論の信頼区間とは意味が異なります）。
+### いつ使うか
+- 「θ が X〜Y の範囲にある確率は 95%」と直接言いたいとき
+- 頻度論の信頼区間（「この手順を繰り返すと 95% のケースで区間が真値を含む」）より解釈が直感的
+
+### 数式
+
+95% 等裾信用区間（Equal-tail Credible Interval）：
+
+$$\text{CI}_{0.95} = \left[\theta_{0.025},\; \theta_{0.975}\right]$$
+
+$\theta_{q}$ は事後分布の $q$ 分位点。Beta分布なら：
+
+$$\theta_q = F^{-1}_{\text{Beta}(\alpha, \beta)}(q)$$
 
 ```python
-# 95% 信用区間（HDI: Highest Density Interval の近似）
-lower = posterior_dist.ppf(0.025)
-upper = posterior_dist.ppf(0.975)
-
+lower = post_dist.ppf(0.025)
+upper = post_dist.ppf(0.975)
 print(f"95%信用区間: [{lower:.3f}, {upper:.3f}]")
-# → [0.397, 0.915] のような結果
 
-# 「θ > 0.5 の確率」を直接計算できる
-prob_biased = 1 - posterior_dist.cdf(0.5)
-print(f"表が出やすい確率: {prob_biased:.1%}")
+# 「θ > 0.5 の確率」を直接計算
+prob_biased = 1 - post_dist.cdf(0.5)
+print(f"表が出やすい（θ>0.5）確率: {prob_biased:.1%}")
 ```
 
-p値では「表が出やすいかどうか」を直接言えませんが、ベイズ統計では確率として取り出せます。
+---
 
-## 実務例：A/Bテストをベイズで解く
+## ベイズA/Bテスト
 
-クリック率の比較を例に、ベイズA/Bテストを実装します。
+### いつ使うか
+- 「BがAより優れている確率は何%か」をビジネス判断に使いたいとき
+- サンプルが少なく途中経過でも意思決定が必要なとき
+
+### 数式
+
+A群・B群それぞれの事後分布：
+
+$$\theta_A \mid \mathcal{D}_A \sim \text{Beta}(1+x_A,\; 1+n_A-x_A)$$
+$$\theta_B \mid \mathcal{D}_B \sim \text{Beta}(1+x_B,\; 1+n_B-x_B)$$
+
+「BがAより優れている確率」：
+
+$$P(\theta_B > \theta_A \mid \mathcal{D}) = \int_0^1 P(\theta_B > \theta_A \mid \theta_A) \, p(\theta_A)\, d\theta_A$$
+
+解析解もあるが、**モンテカルロ積分**が実用的：
+
+$$\hat{P}(\theta_B > \theta_A) \approx \frac{1}{S}\sum_{s=1}^{S} \mathbf{1}[\theta_B^{(s)} > \theta_A^{(s)}]$$
 
 ```python
-import numpy as np
-from scipy import stats
+n_a, x_a = 1000, 50
+n_b, x_b = 1000, 65
 
-# AパターンとBパターンのデータ
-n_a, clicks_a = 1000, 50   # 表示1000回、クリック50回
-n_b, clicks_b = 1000, 65   # 表示1000回、クリック65回
+post_a = stats.beta(1 + x_a, 1 + n_a - x_a)
+post_b = stats.beta(1 + x_b, 1 + n_b - x_b)
 
-# 事後分布（Beta分布の共役性を利用）
-posterior_a = stats.beta(1 + clicks_a, 1 + n_a - clicks_a)
-posterior_b = stats.beta(1 + clicks_b, 1 + n_b - clicks_b)
+# モンテカルロ積分
+S = 200_000
+samp_a = post_a.rvs(S)
+samp_b = post_b.rvs(S)
 
-print(f"A CTR 事後平均: {posterior_a.mean():.3f}")
-print(f"B CTR 事後平均: {posterior_b.mean():.3f}")
+prob_b_better = np.mean(samp_b > samp_a)
+expected_lift = np.mean((samp_b - samp_a) / samp_a)
 
-# モンテカルロシミュレーションで「BがAより優れている確率」を計算
-n_samples = 100_000
-samples_a = posterior_a.rvs(n_samples)
-samples_b = posterior_b.rvs(n_samples)
-
-prob_b_better = np.mean(samples_b > samples_a)
-expected_lift = np.mean((samples_b - samples_a) / samples_a)
-
-print(f"\nBがAより優れている確率: {prob_b_better:.1%}")
+print(f"E[θ_A] = {post_a.mean():.4f}")
+print(f"E[θ_B] = {post_b.mean():.4f}")
+print(f"P(θ_B > θ_A | D) = {prob_b_better:.1%}")
 print(f"期待改善率: {expected_lift:.1%}")
-
-# 可視化
-theta = np.linspace(0, 0.15, 300)
-plt.figure(figsize=(10, 5))
-plt.plot(theta, posterior_a.pdf(theta), label=f"A（{clicks_a}/{n_a}回）", color="steelblue")
-plt.plot(theta, posterior_b.pdf(theta), label=f"B（{clicks_b}/{n_b}回）", color="tomato")
-plt.xlabel("クリック率")
-plt.ylabel("確率密度")
-plt.title(f"A/Bテスト事後分布（BがAより優れている確率: {prob_b_better:.1%}）")
-plt.legend()
-plt.tight_layout()
-plt.show()
 ```
 
-p値と違い「BはAより X% 改善している確率は Y%」という形でビジネス判断に使いやすい結果が得られます。
+---
 
 ## データが増えると事後分布はどう変わるか
 
-「データが少ないうちは事前知識が強く影響し、データが増えるにつれて観測値に収束する」のがベイズ統計の直感的な特徴です。
+事前知識の影響は $n \to \infty$ で消え、事後平均は最尤推定量（MLE）に収束する。
+
+$$E[\theta \mid \mathcal{D}] = \frac{\alpha_0 + k}{\alpha_0 + \beta_0 + n} \xrightarrow{n\to\infty} \frac{k}{n} = \hat{\theta}_{\text{MLE}}$$
 
 ```python
-fig, axes = plt.subplots(1, 4, figsize=(16, 4), sharey=False)
-
-# 徐々にデータを増やしていく
-experiments = [
-    (0, 0, "データなし"),
-    (3, 2, "3回中2回表"),
-    (10, 7, "10回中7回表"),
-    (100, 70, "100回中70回表"),
-]
-
+experiments = [(0,0,"データなし"), (3,2,"3回中2表"), (10,7,"10回中7表"), (100,70,"100回中70表")]
+fig, axes = plt.subplots(1, 4, figsize=(16, 4))
 for ax, (n, k, label) in zip(axes, experiments):
-    alpha = 1 + k
-    beta_param = 1 + (n - k)
-    dist = stats.beta(alpha, beta_param)
+    dist = stats.beta(1+k, 1+(n-k))
     theta = np.linspace(0, 1, 300)
-    ax.plot(theta, dist.pdf(theta), color="steelblue", linewidth=2)
-    ax.axvline(0.7, color="red", linestyle="--", alpha=0.5)
-    ax.set_title(label)
-    ax.set_xlabel("θ")
-    ax.set_xlim(0, 1)
-
-plt.suptitle("データが増えるにつれて事後分布が真の値（0.7）に収束する", y=1.02)
-plt.tight_layout()
-plt.show()
+    ax.plot(theta, dist.pdf(theta), color="steelblue", lw=2)
+    ax.axvline(0.7, color="red", ls="--", alpha=0.5, label="真値")
+    ax.set_title(label); ax.set_xlabel("θ"); ax.set_xlim(0, 1)
+plt.suptitle("データが増えると事後分布が真値（0.7）に収束する", y=1.02)
+plt.tight_layout(); plt.show()
 ```
 
-## 頻度論との使い分け
-
-| | 頻度論（p値） | ベイズ統計 |
-|---|---|---|
-| 「θ の確率」を直接言える | ❌（パラメータは固定値） | ✅ |
-| 事前知識を組み込める | ❌ | ✅ |
-| 解釈のしやすさ | p値は誤解されやすい | 「〜の確率」と直接言える |
-| 計算コスト | 低い | 複雑なモデルは高い |
-| サンプル数が少ない場合 | 信頼性が低い | 事前分布で補完できる |
-
-どちらが優れているかではなく、問いに応じて使い分けるのが実務での正解です。
+---
 
 ## まとめ
 
-- **事前分布**：実験前の知識を確率で表す
-- **尤度**：データが得られる確率
-- **事後分布**：事前 × 尤度で「データを見た後の信念」
-- Beta分布は二項分布の共役事前分布で、手計算でも更新できる
-- 「〜の確率」を直接言えるので、ビジネス判断に使いやすい
-
-最初の一歩として `scipy.stats.beta` を使ったコインの例をぜひ手元で動かしてみてください。
+| 概念 | 数式 | 意味 |
+|------|------|------|
+| ベイズの定理 | $P(\theta\|D) \propto P(D\|\theta)P(\theta)$ | 事後 ∝ 尤度 × 事前 |
+| Beta分布の期待値 | $E[\theta]=\alpha/(\alpha+\beta)$ | 更新後の割合の推定値 |
+| ベイズ更新（Beta-Binomial） | $\text{Beta}(\alpha_0+k,\;\beta_0+n-k)$ | 成功・失敗を足すだけ |
+| 信用区間 | $[F^{-1}(0.025), F^{-1}(0.975)]$ | 事後分布の分位点 |

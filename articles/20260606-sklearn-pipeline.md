@@ -13,7 +13,57 @@ published: true
 
 機械学習モデルを実装していると、こういった問題に頻繁に遭遇します。原因の多くは、前処理とモデル訓練が**バラバラに管理されている**ことにあります。
 
-scikit-learn の `Pipeline` を使うと、前処理からモデル訓練・推論までを一つの流れとして管理できます。本記事では、Pipelineの基本から本番運用まで使える実践的な設計方法を解説します。
+本記事では、Pipelineの背景にある数式・使い所・実装を3点セットで解説します。
+
+---
+
+## 標準化（StandardScaler）
+
+### いつ使うか
+- 特徴量のスケールが揃っていないとき（例：年齢と年収を同時に扱う）
+- 距離ベースの手法（SVM・k-NN・PCA）や正則化付きモデルで必須
+- 勾配降下法の収束を安定させるとき
+
+### 数式
+
+特徴量 $x_j$ を標準化する変換：
+
+$$\tilde{x}_j = \frac{x_j - \bar{x}_j}{s_j}$$
+
+- $\bar{x}_j = \frac{1}{n}\sum_{i=1}^n x_{ij}$：訓練データの平均
+- $s_j = \sqrt{\frac{1}{n}\sum_{i=1}^n (x_{ij}-\bar{x}_j)^2}$：訓練データの標準偏差
+
+**重要**：$\bar{x}_j$ と $s_j$ は必ず**訓練データだけ**から計算する。テストデータに `fit` するとデータリーク。
+
+---
+
+## ロジスティック回帰の損失関数
+
+### いつ使うか
+- 二値分類問題（クリック/非クリック、離脱/継続など）
+- 確率として出力を解釈したいとき
+
+### 数式
+
+シグモイド関数：
+
+$$\sigma(z) = \frac{1}{1+e^{-z}}, \quad z = \mathbf{w}^\top \mathbf{x} + b$$
+
+損失関数（交差エントロピー）：
+
+$$\mathcal{L}(\mathbf{w}) = -\frac{1}{n}\sum_{i=1}^n \left[y_i \log \sigma(z_i) + (1-y_i)\log(1-\sigma(z_i))\right]$$
+
+**正則化（L2 / Ridge）**：
+
+$$\mathcal{L}_{\text{Ridge}}(\mathbf{w}) = \mathcal{L}(\mathbf{w}) + \frac{\lambda}{2}\|\mathbf{w}\|_2^2$$
+
+**正則化（L1 / Lasso）**：
+
+$$\mathcal{L}_{\text{Lasso}}(\mathbf{w}) = \mathcal{L}(\mathbf{w}) + \lambda\|\mathbf{w}\|_1$$
+
+scikit-learnの `LogisticRegression` では $C = 1/\lambda$（大きいほど正則化が弱い）。
+
+---
 
 ## Pipelineを使わないと何が起きるか
 
