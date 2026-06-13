@@ -151,3 +151,4 @@ $$数式$$
 | 2026-06-08 | 20260608-probability-distributions.md | 確率分布の使い分け完全ガイド：データサイエンティストが押さえるべき10の分布 |
 | 2026-06-08 | 20260608-hypothesis-testing-cheatsheet.md | 仮説検定チートシート：どの検定をいつ使うか完全ガイド |
 | 2026-06-11 | 20260611-maximum-likelihood-estimation.md | 最尤推定（MLE）の仕組みと実装：パラメータ推定の核心を数式とPythonで理解する |
+| 2026-06-13 | 20260613-information-criteria-aic-bic.md | 情報量基準（AIC・BIC）でモデル選択を数式から理解する：複雑さと当てはまりのバランス |
