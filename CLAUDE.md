@@ -151,3 +151,6 @@ $$数式$$
 | 2026-06-08 | 20260608-probability-distributions.md | 確率分布の使い分け完全ガイド：データサイエンティストが押さえるべき10の分布 |
 | 2026-06-08 | 20260608-hypothesis-testing-cheatsheet.md | 仮説検定チートシート：どの検定をいつ使うか完全ガイド |
 | 2026-06-11 | 20260611-maximum-likelihood-estimation.md | 最尤推定（MLE）の仕組みと実装：パラメータ推定の核心を数式とPythonで理解する |
+| 2026-06-11 | 20260611-confidence-interval.md | 区間推定と信頼区間の正しい解釈：統計検定DS対策 |
+| 2026-06-11 | 20260611-multiple-regression-multicollinearity.md | 重回帰分析と多重共線性の診断・対処：統計検定DS対策 |
+| 2026-06-15 | 20260615-central-limit-theorem.md | 中心極限定理と大数の法則：「標本平均が正規分布に従う」を数式とシミュレーションで体感する |
